@@ -154,61 +154,6 @@ function setThetaLivePreview(w=settings.theta_res_x, h=settings.theta_res_y,
     }, postData);
 }
 
-/*
- * Stops a live preview from the camera by taking a video
- * TODO: delete the temp video created to stop the stream
- * TODO: find a better way of stopping the recording
- */
-function stopThetaLivePreview() {
-    // Start a capture
-    console.log("Stop the Theta live preview");
-    var endpoint = "/osc/commands/execute";
-    var url = CORS_ANYWHERE + "/" + settings.theta_ip + endpoint;
-    var startRequest = new digestAuthRequest('POST', url, settings.theta_user, 
-        settings.theta_pass);
-    var startData = { 
-        "name": "camera.startCapture",
-    };
-    startRequest.request(function(data) {
-        console.log(data);
-    },function(errorCode) {
-        throw errorCode;
-    }, startData);
-
-
-    // SUPER grimey way to make sure we stop recording 
-    // TODO: use async, since this method doesn't wait for the prev req to fail
-    var maxIters = 10;
-    var iterNum = 0;
-    const stopRecording = function () {
-        var result;
-        iterNum = iterNum + 1;
-        
-        console.log("Trying to stop the stream (attempt " + iterNum + ")");
-        var stopRequest = new digestAuthRequest('POST', url, settings.theta_user, 
-            settings.theta_pass);
-        var stopData = { 
-            "name": "camera.stopCapture",
-        };
-
-        // make the request
-        stopRequest.request(function(data) {
-            console.log(data);
-            clearInterval(retryIntervalId); // stop attempting to stop
-            thetaStatus.streaming = false;  // stop getThetaLivePreview()
-            var stopEvent = new Event(STREAM_STOPPED_EVENT);
-            document.dispatchEvent(stopEvent);
-        },function(errorCode) {
-            throw errorCode;
-        }, stopData);
-        
-        // Stop retrying if we are at max tries
-        if (iterNum >= maxIters) {
-            clearInterval(retryIntervalId);
-        }
-    };
-    var retryIntervalId = setInterval(stopRecording, 500);
-}
 
 /*
  * Gets a live preview from the camera
@@ -263,7 +208,10 @@ function getThetaLivePreview() {
         document.dispatchEvent(startEvent);
 
         // Stop when the stream stops
-        document.addEventListener(STREAM_STOPPED_EVENT, function(e) { return; }, false);
+        document.addEventListener(STREAM_STOPPED_EVENT, function(e) { 
+            thetaStatus.streaming = false;  // stop getThetaLivePreview()
+            return; 
+        }, false);
 
         // calculating fps and mbps. TODO: implement a floating window function.
         let frames = 0;
@@ -329,9 +277,9 @@ function getThetaLivePreview() {
         read();
         
     }).catch(error => {
-        //thetaStatus.streaming = false;  // we are no longer connected
         var stopEvent = new Event(STREAM_STOPPED_EVENT);
         document.dispatchEvent(stopEvent);
+        thetaStatus.streaming = false;  // we are no longer connected
         console.error(error);
     })
 

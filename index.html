@@ -128,7 +128,8 @@
             document.querySelector("#stop_video").disabled = false;
 
             /* Stop the live stream */
-            stopThetaLivePreview();
+            var stopEvent = new Event(STREAM_STOPPED_EVENT);
+            document.dispatchEvent(stopEvent);
         }
 
         /* ==================== */
